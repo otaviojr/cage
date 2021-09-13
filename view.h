@@ -12,6 +12,7 @@
 #include <wlr/xwayland.h>
 #endif
 
+#include "application.h"
 #include "server.h"
 
 enum cg_view_type {
@@ -26,6 +27,12 @@ struct cg_view {
 	struct wl_list link; // server::views
 	struct wl_list children; // cg_view_child::link
 	struct wlr_surface *wlr_surface;
+
+    /*
+     * If it is a top-level view, it will link to the
+     * application that creates it.
+     */
+     struct cg_application *application;
 
 	/* The view has a position in layout coordinates. */
 	int lx, ly;

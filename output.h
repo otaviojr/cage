@@ -13,6 +13,9 @@ struct cg_output {
 	struct wlr_output *wlr_output;
 	struct wlr_output_damage *damage;
 
+    //View currently being displayed by this output
+    struct cg_view *view;
+
 	struct wl_listener commit;
 	struct wl_listener mode;
 	struct wl_listener destroy;

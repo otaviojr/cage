@@ -39,6 +39,7 @@ wayland_protos = dependency('wayland-protocols', version: '>=1.14')
 wayland_server = dependency('wayland-server')
 pixman         = dependency('pixman-1')
 xkbcommon      = dependency('xkbcommon')
+proc           = cc.find_library('libprocps')
 math           = cc.find_library('m')
 
 wl_protocol_dir = wayland_protos.get_pkgconfig_variable('pkgdatadir')
@@ -128,7 +129,8 @@ cage_sources = [
   'view.c',
   'xdg_shell.c',
   'io_mapping.c',
-  'application.c'
+  'application.c',
+  'application_mapping.c',
 ]
 
 cage_headers = [
@@ -144,7 +146,8 @@ cage_headers = [
   'view.h',
   'xdg_shell.h',
   'io_mapping.h',
-  'application.h'
+  'application.h',
+  'application_mapping.h',
 ]
 
 if conf_data.get('CAGE_HAS_XWAYLAND', 0) == 1
@@ -162,6 +165,7 @@ executable(
     xkbcommon,
     pixman,
     math,
+    proc,
   ],
   install: true,
 )

@@ -285,6 +285,16 @@ handle_xdg_shell_surface_destroy(struct wl_listener *listener, void *data)
 {
 	struct cg_xdg_shell_view *xdg_shell_view = wl_container_of(listener, xdg_shell_view, destroy);
 	struct cg_view *view = &xdg_shell_view->view;
+    struct cg_output* output;
+
+    //TODO: remove the view from the current allocated output
+
+    wl_list_for_each (output, &view->server->outputs, link) {
+        if(output->view == view){
+            output->view = NULL;
+        }
+    }
+
 
 	wl_list_remove(&xdg_shell_view->map.link);
 	wl_list_remove(&xdg_shell_view->unmap.link);
@@ -314,6 +324,8 @@ handle_xdg_shell_surface_new(struct wl_listener *listener, void *data)
 {
 	struct cg_server *server = wl_container_of(listener, server, new_xdg_shell_surface);
 	struct wlr_xdg_surface *xdg_surface = data;
+    struct cg_application *application;
+    int pid;
 
 	if (xdg_surface->role != WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
 		return;
@@ -326,6 +338,19 @@ handle_xdg_shell_surface_new(struct wl_listener *listener, void *data)
 	}
 
 	view_init(&xdg_shell_view->view, server, CAGE_XDG_SHELL_VIEW, &xdg_shell_view_impl);
+
+    /* Locate the application who owns this view */
+    wl_client_get_credentials(xdg_surface->client->client,&pid, NULL, NULL);
+    if(pid){
+        application = application_find_by_pid(server, pid);
+        if(application){
+            xdg_shell_view->view.application = application;
+        }
+    }
+    if(!xdg_shell_view->view.application){
+        wlr_log(WLR_ERROR, "XDG Shell failed to get view application pid %d", pid);
+    }
+
 	xdg_shell_view->xdg_surface = xdg_surface;
 
 	xdg_shell_view->map.notify = handle_xdg_shell_surface_map;

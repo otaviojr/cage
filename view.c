@@ -15,6 +15,8 @@
 #include <wlr/types/wlr_box.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_surface.h>
+#include <wlr/util/log.h>
+
 
 #include "output.h"
 #include "seat.h"
@@ -23,6 +25,7 @@
 #if CAGE_HAS_XWAYLAND
 #include "xwayland.h"
 #endif
+#include "application_mapping.h"
 
 static void
 view_child_handle_commit(struct wl_listener *listener, void *data)
@@ -170,12 +173,11 @@ view_extends_output_layout(struct cg_view *view, struct wlr_box *layout_box)
 }
 
 static void
-view_maximize_for_output(struct cg_view *view, struct wlr_output_layout *output_layout)
+view_maximize_for_output(struct cg_view *view, struct wlr_output_layout_output *layout_output)
 {
-    struct wlr_output_layout_output *output = wl_container_of(output_layout->outputs.prev, output, link);
-	view->lx = output->x;
-	view->ly = output->y;
-	view->impl->maximize(view, output->output->width, output->output->height);
+    view->lx = layout_output->x;
+	view->ly = layout_output->y;
+	view->impl->maximize(view, layout_output->output->width, layout_output->output->height);
 }
 
 static void
@@ -200,10 +202,52 @@ void
 view_position(struct cg_view *view)
 {
 	struct wlr_box *layout_box = wlr_output_layout_get_box(view->server->output_layout, NULL);
+    struct wlr_output_layout_output *layout_output;
+    struct cg_output* output;
 
 	if (view_is_primary(view) || view_extends_output_layout(view, layout_box)) {
-		//view_maximize(view, layout_box);
-        view_maximize_for_output(view, view->server->output_layout);
+        //Check if this view is already mapped
+        wl_list_for_each (layout_output, &view->server->output_layout->outputs, link) {
+            output = (struct cg_output*)layout_output->output->data;
+            if(output->view && output->view == view){
+                view_maximize_for_output(view, layout_output);
+                wlr_log(WLR_ERROR, "View already mapped. Resizing.");
+                return;
+            }
+        }
+
+        //If not, check if we have a fixed mapping
+        wl_list_for_each (layout_output, &view->server->output_layout->outputs, link) {
+            output = (struct cg_output*)layout_output->output->data;
+            if(view->application){
+                char* output_name = find_output_from_application(view->server, view->application->argv[0]);
+                if(output_name){
+                    if(strcmp(output_name, output->wlr_output->name) == 0){
+                        output->view = view;
+                        view_maximize_for_output(view, layout_output);
+                        wlr_log(WLR_ERROR, "Fixed mapping view %s to output %s",view->application->argv[0], output->wlr_output->name);
+                        return;
+                    }
+                }
+            }
+        }
+
+        //If not, try to map on the first available output
+        wl_list_for_each (layout_output, &view->server->output_layout->outputs, link) {
+            output = (struct cg_output*)layout_output->output->data;
+            if(!output->view){
+                output->view = view;
+                view_maximize_for_output(view, layout_output);
+                //Checking custom mappings
+                if(!view->application){
+                    wlr_log(WLR_ERROR, "Mapping view desconhecida to output %s", output->wlr_output->name);
+                } else {
+                    wlr_log(WLR_ERROR, "Mapping view %s to output %s",view->application->argv[0], output->wlr_output->name);
+                }
+                return;
+            }
+        }
+        wlr_log(WLR_ERROR, "No output available to a new view");
 	} else {
 		view_center(view, layout_box);
 	}

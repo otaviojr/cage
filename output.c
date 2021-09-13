@@ -395,6 +395,12 @@ output_destroy(struct cg_output *output)
 {
 	struct cg_server *server = output->server;
 
+    if(output->view && output->view->application){
+        application_end_signal(output->view->application);
+    } else {
+        wlr_log(WLR_ERROR, "Output has no view assigned to it");
+    }
+
 	wl_list_remove(&output->destroy.link);
 	wl_list_remove(&output->commit.link);
 	wl_list_remove(&output->mode.link);
@@ -452,7 +458,7 @@ map_output_to_touch_device(struct cg_output *output)
                 wlr_log(WLR_ERROR, "Couldn't map input device %s to an output\n", touch->device->name);
             }
         } else {
-            wlr_log(WLR_ERROR, "input device %s do not have an output\n", touch->device->name);            
+            wlr_log(WLR_ERROR, "input device %s do not have an output\n", touch->device->name);
         }
 	}
 
@@ -464,6 +470,8 @@ handle_new_output(struct wl_listener *listener, void *data)
 	struct cg_server *server = wl_container_of(listener, server, new_output);
 	struct wlr_output *wlr_output = data;
 
+    application_next_spawn(server);
+
 	struct cg_output *output = calloc(1, sizeof(struct cg_output));
 	if (!output) {
 		wlr_log(WLR_ERROR, "Failed to allocate output");
@@ -471,6 +479,7 @@ handle_new_output(struct wl_listener *listener, void *data)
 	}
 
 	output->wlr_output = wlr_output;
+    wlr_output->data = output;
 	output->server = server;
 	output->damage = wlr_output_damage_create(wlr_output);
 	wl_list_insert(&server->outputs, &output->link);

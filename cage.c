@@ -52,20 +52,7 @@
 
 #include "application.h"
 #include "io_mapping.h"
-
-static void
-cleanup_primary_client(pid_t pid)
-{
-	int status;
-
-	waitpid(pid, &status, 0);
-
-	if (WIFEXITED(status)) {
-		wlr_log(WLR_DEBUG, "Child exited normally with exit status %d", WEXITSTATUS(status));
-	} else if (WIFSIGNALED(status)) {
-		wlr_log(WLR_DEBUG, "Child was terminated by a signal (%d)", WTERMSIG(status));
-	}
-}
+#include "application_mapping.h"
 
 static bool
 drop_permissions(void)
@@ -109,6 +96,7 @@ usage(FILE *file, const char *cage)
 	fprintf(file,
 		"Usage: %s [OPTIONS] [--] APPLICATION\n"
 		"\n"
+        " -a\t Map an application to an output.\n"
 		" -d\t Don't draw client side decorations, when possible\n"
 #ifdef DEBUG
 		" -D\t Turn on damage tracking debugging\n"
@@ -131,11 +119,22 @@ parse_args(struct cg_server *server, int argc, char *argv[])
 	int c;
     char* p;
 #ifdef DEBUG
-	while ((c = getopt(argc, argv, "dDi:hm:rsv")) != -1) {
+	while ((c = getopt(argc, argv, "a:dDi:hm:rsv")) != -1) {
 #else
 	while ((c = getopt(argc, argv, "dhm:rsv")) != -1) {
 #endif
 		switch (c) {
+        case 'a':
+            wlr_log(WLR_DEBUG, "application_mapping: %s", optarg);
+			p = strstr(optarg, ";");
+            if(p){
+                *p = '\0';
+                struct cg_application_mapping* map = application_mapping_new(optarg,p+1);
+                wl_list_insert(&server->application_mappings, &map->link);
+            } else {
+                wlr_log(WLR_ERROR, "application_mapping with an invalid format %s", optarg);
+            }
+            break;
 		case 'd':
 			server->xdg_decoration = true;
 			break;
@@ -213,14 +212,17 @@ main(int argc, char *argv[])
 	struct wlr_xwayland *xwayland = NULL;
 	struct wlr_xcursor_manager *xcursor_manager = NULL;
 #endif
-	pid_t pid = 0;
 	int ret = 0;
 
     wl_list_init(&server.io_mappings);
+    wl_list_init(&server.application_mappings);
+    wl_list_init(&server.applications);
 
 	if (!parse_args(&server, argc, argv)) {
 		return 1;
 	}
+
+    application_new(&server, argv[optind]);
 
 #ifdef DEBUG
 	wlr_log_init(WLR_DEBUG, NULL);
@@ -426,9 +428,6 @@ main(int argc, char *argv[])
 	wlr_xwayland_set_seat(xwayland, server.seat->seat);
 #endif
 
-	wl_list_init(&server.applications);
-	application_new(&server, argv[optind]);
-
 	/* Place the cursor in the center of the output layout. */
 	struct wlr_box *layout_box = wlr_output_layout_get_box(server.output_layout, NULL);
 	wlr_cursor_warp(server.seat->cursor, NULL, layout_box->width / 2, layout_box->height / 2);
@@ -442,7 +441,7 @@ main(int argc, char *argv[])
 	wl_display_destroy_clients(server.wl_display);
 
 end:
-	cleanup_primary_client(pid);
+	cleanup_all_applications(&server);
 
 	wl_event_source_remove(sigint_source);
 	wl_event_source_remove(sigterm_source);
