@@ -170,6 +170,15 @@ view_extends_output_layout(struct cg_view *view, struct wlr_box *layout_box)
 }
 
 static void
+view_maximize_for_output(struct cg_view *view, struct wlr_output_layout *output_layout)
+{
+    struct wlr_output_layout_output *output = wl_container_of(output_layout->outputs.prev, output, link);
+	view->lx = output->x;
+	view->ly = output->y;
+	view->impl->maximize(view, output->output->width, output->output->height);
+}
+
+static void
 view_maximize(struct cg_view *view, struct wlr_box *layout_box)
 {
 	view->lx = layout_box->x;
@@ -193,7 +202,8 @@ view_position(struct cg_view *view)
 	struct wlr_box *layout_box = wlr_output_layout_get_box(view->server->output_layout, NULL);
 
 	if (view_is_primary(view) || view_extends_output_layout(view, layout_box)) {
-		view_maximize(view, layout_box);
+		//view_maximize(view, layout_box);
+        view_maximize_for_output(view, view->server->output_layout);
 	} else {
 		view_center(view, layout_box);
 	}

@@ -49,6 +49,7 @@
 #if CAGE_HAS_XWAYLAND
 #include "xwayland.h"
 #endif
+#include "io_mapping.h"
 
 static int
 sigchld_handler(int fd, uint32_t mask, void *data)
@@ -189,6 +190,7 @@ usage(FILE *file, const char *cage)
 		" -D\t Turn on damage tracking debugging\n"
 #endif
 		" -h\t Display this help message\n"
+        " -i\t Map an input to an output (touch with a display).\n"
 		" -m extend Extend the display across all connected outputs (default)\n"
 		" -m last Use only the last connected output\n"
 		" -r\t Rotate the output 90 degrees clockwise, specify up to three times\n"
@@ -203,8 +205,9 @@ static bool
 parse_args(struct cg_server *server, int argc, char *argv[])
 {
 	int c;
+    char* p;
 #ifdef DEBUG
-	while ((c = getopt(argc, argv, "dDhm:rsv")) != -1) {
+	while ((c = getopt(argc, argv, "dDi:hm:rsv")) != -1) {
 #else
 	while ((c = getopt(argc, argv, "dhm:rsv")) != -1) {
 #endif
@@ -220,6 +223,17 @@ parse_args(struct cg_server *server, int argc, char *argv[])
 		case 'h':
 			usage(stdout, argv[0]);
 			return false;
+        case 'i':
+            wlr_log(WLR_DEBUG, "io_mapping: %s", optarg);
+			p = strstr(optarg, ";");
+            if(p){
+                *p = '\0';
+                struct io_mapping* map = io_mapping_new(optarg,p+1);
+                wl_list_insert(&server->io_mappings, &map->link);
+            } else {
+                wlr_log(WLR_ERROR, "io_mapping with an invalid format %s", optarg);
+            }
+            break;
 		case 'm':
 			if (strcmp(optarg, "last") == 0) {
 				server->output_mode = CAGE_MULTI_OUTPUT_MODE_LAST;
@@ -277,6 +291,8 @@ main(int argc, char *argv[])
 #endif
 	pid_t pid = 0;
 	int ret = 0;
+
+    wl_list_init(&server.io_mappings);
 
 	if (!parse_args(&server, argc, argv)) {
 		return 1;

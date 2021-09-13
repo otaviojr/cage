@@ -37,6 +37,7 @@ struct cg_server {
 	/* Includes disabled outputs; depending on the output_mode
 	 * some outputs may be disabled. */
 	struct wl_list outputs; // cg_output::link
+    struct wl_list io_mappings; // cg_output::link
 	struct wl_listener new_output;
 
 	struct wl_listener xdg_toplevel_decoration;

@@ -31,6 +31,7 @@
 #include "seat.h"
 #include "server.h"
 #include "view.h"
+#include "io_mapping.h"
 #if CAGE_HAS_XWAYLAND
 #include "xwayland.h"
 #endif
@@ -71,11 +72,14 @@ desktop_view_at(struct cg_server *server, double lx, double ly, struct wlr_surfa
 	struct cg_view *view;
 
 	wl_list_for_each (view, &server->views, link) {
+        wlr_log(WLR_ERROR, "Trying to find a view at x=%f and y=%f", lx, ly);
 		if (view_at(view, lx, ly, surface, sx, sy)) {
+            wlr_log(WLR_ERROR, "We find aview");
 			return view;
 		}
 	}
 
+    wlr_log(WLR_ERROR, "Ops... no donuts for you");
 	return NULL;
 }
 
@@ -129,12 +133,21 @@ update_capabilities(struct cg_seat *seat)
 static void
 map_input_device_to_output(struct cg_seat *seat, struct wlr_input_device *device)
 {
+    struct cg_output *output;
+    struct io_mapping* mapping;
+
 	if (!device->output_name) {
-		wlr_log(WLR_INFO, "Input device %s cannot be mapped to an output device\n", device->name);
-		return;
+        wl_list_for_each(mapping, &seat->server->io_mappings, link) {
+            if(strcmp(mapping->device_name, device->name) == 0){
+                device->output_name = mapping->output_name;
+            }
+        }
+        if (!device->output_name) {
+		    wlr_log(WLR_INFO, "Input device %s cannot be mapped to an output device\n", device->name);
+		    return;
+        }
 	}
 
-	struct cg_output *output;
 	wl_list_for_each (output, &seat->server->outputs, link) {
 		if (strcmp(device->output_name, output->wlr_output->name) == 0) {
 			wlr_log(WLR_INFO, "Mapping input device %s to output device %s\n", device->name,
@@ -441,15 +454,39 @@ handle_request_set_cursor(struct wl_listener *listener, void *data)
 static void
 handle_touch_down(struct wl_listener *listener, void *data)
 {
+    struct wlr_output_layout_output *child, *tmp;
 	struct cg_seat *seat = wl_container_of(listener, seat, touch_down);
 	struct wlr_event_touch_down *event = data;
 
 	double lx, ly;
-	wlr_cursor_absolute_to_layout_coords(seat->cursor, event->device, event->x, event->y, &lx, &ly);
+
+    /*
+     * We I have a problem here since out touch device have no relations with the output
+     * device. Maybe something to be fixes at wayland or wlroots.
+     *
+     * So, to solve this problemas we will relay on the fact that all outputs are aranged
+     * horizontaly, we will find the corrent X here and than, find the Y relative to
+     * that output and our touch will be mapped correctly.
+     */
+    wlr_cursor_absolute_to_layout_coords(seat->cursor, event->device, event->x, event->y, &lx, &ly);
+
+    wl_list_for_each_safe (child, tmp, &seat->server->output_layout->outputs, link) {
+        if(lx > child->x && lx < child->x + child->output->width){
+            wlr_log(WLR_ERROR, "We find an output for this event");
+            lx = event->x * child->output->width + child->x;
+            ly = event->y * child->output->height + child->y;
+        }
+    }
+
+    wlr_log(WLR_ERROR, "Touch at x=%f mapped to x=%f", event->x, lx);
+    wlr_log(WLR_ERROR, "Touch at y=%f mapped to y=%f", event->y, ly);
 
 	double sx, sy;
 	struct wlr_surface *surface;
 	struct cg_view *view = desktop_view_at(seat->server, lx, ly, &surface, &sx, &sy);
+
+    wlr_log(WLR_ERROR, "Touch at view is x=%f", sx);
+    wlr_log(WLR_ERROR, "Touch at view is y=%f", sy);
 
 	uint32_t serial = 0;
 	if (view) {
@@ -488,6 +525,7 @@ handle_touch_up(struct wl_listener *listener, void *data)
 static void
 handle_touch_motion(struct wl_listener *listener, void *data)
 {
+    struct wlr_output_layout_output *child, *tmp;
 	struct cg_seat *seat = wl_container_of(listener, seat, touch_motion);
 	struct wlr_event_touch_motion *event = data;
 
@@ -496,7 +534,24 @@ handle_touch_motion(struct wl_listener *listener, void *data)
 	}
 
 	double lx, ly;
-	wlr_cursor_absolute_to_layout_coords(seat->cursor, event->device, event->x, event->y, &lx, &ly);
+
+    /*
+     * We I have a problem here since out touch device have no relations with the output
+     * device. Maybe something to be fixes at wayland or wlroots.
+     *
+     * So, to solve this problemas we will relay on the fact that all outputs are aranged
+     * horizontaly, we will find the corrent X here and than, find the Y relative to
+     * that output and our touch will be mapped correctly.
+     */
+   wlr_cursor_absolute_to_layout_coords(seat->cursor, event->device, event->x, event->y, &lx, &ly);
+
+   wl_list_for_each_safe (child, tmp, &seat->server->output_layout->outputs, link) {
+       if(lx >= child->x && lx <= child->x + child->output->width){
+           wlr_log(WLR_ERROR, "We find an output for this event");
+           lx = event->x * child->output->width + child->x;
+           ly = event->y * child->output->height + child->y;
+       }
+   }
 
 	double sx, sy;
 	struct wlr_surface *surface;
