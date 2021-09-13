@@ -134,7 +134,7 @@ static void
 map_input_device_to_output(struct cg_seat *seat, struct wlr_input_device *device)
 {
     struct cg_output *output;
-    struct io_mapping* mapping;
+    struct cg_io_mapping* mapping;
 
 	if (!device->output_name) {
         wl_list_for_each(mapping, &seat->server->io_mappings, link) {

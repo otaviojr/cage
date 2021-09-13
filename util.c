@@ -34,3 +34,16 @@ scale_box(struct wlr_box *box, float scale)
 	box->x = round(box->x * scale);
 	box->y = round(box->y * scale);
 }
+
+/*char* strdup (const char* s)
+{
+  size_t slen = strlen(s);
+  char* result = malloc(slen + 1);
+  if(result == NULL)
+  {
+    return NULL;
+  }
+
+  memcpy(result, s, slen+1);
+  return result;
+}*/

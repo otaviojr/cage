@@ -49,85 +49,9 @@
 #if CAGE_HAS_XWAYLAND
 #include "xwayland.h"
 #endif
+
+#include "application.h"
 #include "io_mapping.h"
-
-static int
-sigchld_handler(int fd, uint32_t mask, void *data)
-{
-	struct wl_display *display = data;
-
-	/* Close Cage's read pipe. */
-	close(fd);
-
-	if (mask & WL_EVENT_HANGUP) {
-		wlr_log(WLR_DEBUG, "Child process closed normally");
-	} else if (mask & WL_EVENT_ERROR) {
-		wlr_log(WLR_DEBUG, "Connection closed by server");
-	}
-
-	wl_display_terminate(display);
-	return 0;
-}
-
-static bool
-set_cloexec(int fd)
-{
-	int flags = fcntl(fd, F_GETFD);
-
-	if (flags == -1) {
-		wlr_log(WLR_ERROR, "Unable to set the CLOEXEC flag: fnctl failed");
-		return false;
-	}
-
-	flags = flags | FD_CLOEXEC;
-	if (fcntl(fd, F_SETFD, flags) == -1) {
-		wlr_log(WLR_ERROR, "Unable to set the CLOEXEC flag: fnctl failed");
-		return false;
-	}
-
-	return true;
-}
-
-static bool
-spawn_primary_client(struct wl_display *display, char *argv[], pid_t *pid_out, struct wl_event_source **sigchld_source)
-{
-	int fd[2];
-	if (pipe(fd) != 0) {
-		wlr_log(WLR_ERROR, "Unable to create pipe");
-		return false;
-	}
-
-	pid_t pid = fork();
-	if (pid == 0) {
-		sigset_t set;
-		sigemptyset(&set);
-		sigprocmask(SIG_SETMASK, &set, NULL);
-		/* Close read, we only need write in the primary client process. */
-		close(fd[0]);
-		execvp(argv[0], argv);
-		_exit(1);
-	} else if (pid == -1) {
-		wlr_log_errno(WLR_ERROR, "Unable to fork");
-		return false;
-	}
-
-	/* Set this early so that if we fail, the client process will be cleaned up properly. */
-	*pid_out = pid;
-
-	if (!set_cloexec(fd[0]) || !set_cloexec(fd[1])) {
-		return false;
-	}
-
-	/* Close write, we only need read in Cage. */
-	close(fd[1]);
-
-	struct wl_event_loop *event_loop = wl_display_get_event_loop(display);
-	uint32_t mask = WL_EVENT_HANGUP | WL_EVENT_ERROR;
-	*sigchld_source = wl_event_loop_add_fd(event_loop, fd[0], mask, sigchld_handler, display);
-
-	wlr_log(WLR_DEBUG, "Child process created with pid %d", pid);
-	return true;
-}
 
 static void
 cleanup_primary_client(pid_t pid)
@@ -228,7 +152,7 @@ parse_args(struct cg_server *server, int argc, char *argv[])
 			p = strstr(optarg, ";");
             if(p){
                 *p = '\0';
-                struct io_mapping* map = io_mapping_new(optarg,p+1);
+                struct cg_io_mapping* map = io_mapping_new(optarg,p+1);
                 wl_list_insert(&server->io_mappings, &map->link);
             } else {
                 wlr_log(WLR_ERROR, "io_mapping with an invalid format %s", optarg);
@@ -502,10 +426,8 @@ main(int argc, char *argv[])
 	wlr_xwayland_set_seat(xwayland, server.seat->seat);
 #endif
 
-	if (!spawn_primary_client(server.wl_display, argv + optind, &pid, &sigchld_source)) {
-		ret = 1;
-		goto end;
-	}
+	wl_list_init(&server.applications);
+	application_new(&server, argv[optind]);
 
 	/* Place the cursor in the center of the output layout. */
 	struct wlr_box *layout_box = wlr_output_layout_get_box(server.output_layout, NULL);

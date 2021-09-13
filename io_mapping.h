@@ -3,13 +3,13 @@
 
 #include <wayland-server-core.h>
 
-struct io_mapping {
+struct cg_io_mapping {
     char* device_name;
     char* output_name;
 
     struct wl_list link;
 };
 
-struct io_mapping* io_mapping_new(char* device, char* output);
+struct cg_io_mapping* io_mapping_new(char* device, char* output);
 
 #endif

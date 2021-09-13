@@ -5,7 +5,6 @@
 
 /** Apply scale to a width or height. */
 int scale_length(int length, int offset, float scale);
-
 void scale_box(struct wlr_box *box, float scale);
-
+/*char* strdup (const char* s);*/
 #endif
