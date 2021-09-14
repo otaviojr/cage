@@ -207,6 +207,7 @@ view_position(struct cg_view *view)
 
 	if (view_is_primary(view) || view_extends_output_layout(view, layout_box)) {
         //Check if this view is already mapped
+        wlr_log(WLR_DEBUG, "Check for already mapped window.");
         wl_list_for_each (layout_output, &view->server->output_layout->outputs, link) {
             output = (struct cg_output*)layout_output->output->data;
             if(output->view && output->view == view){
@@ -217,6 +218,7 @@ view_position(struct cg_view *view)
         }
 
         //If not, check if we have a fixed mapping
+        wlr_log(WLR_DEBUG, "Check for fixed mapped window.");
         wl_list_for_each (layout_output, &view->server->output_layout->outputs, link) {
             output = (struct cg_output*)layout_output->output->data;
             if(view->application){
@@ -233,6 +235,7 @@ view_position(struct cg_view *view)
         }
 
         //If not, try to map on the first available output
+        wlr_log(WLR_DEBUG, "Check for generic mapped window.");
         wl_list_for_each (layout_output, &view->server->output_layout->outputs, link) {
             output = (struct cg_output*)layout_output->output->data;
             if(!output->view){
@@ -249,6 +252,7 @@ view_position(struct cg_view *view)
         }
         wlr_log(WLR_ERROR, "No output available to a new view");
 	} else {
+        wlr_log(WLR_DEBUG, "Mapping a non main window.");
 		view_center(view, layout_box);
 	}
 }

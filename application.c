@@ -159,6 +159,7 @@ struct cg_application *application_find_by_pid(struct cg_server* server, pid_t p
     proc_t process_info;
     pid_t ppid = 0;
 
+    wlr_log(WLR_DEBUG, "Searching for pid %d", pid);
 	wl_list_for_each (application, &server->applications, link) {
 
         if(application->pid == pid){

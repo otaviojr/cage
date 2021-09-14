@@ -339,6 +339,8 @@ handle_xdg_shell_surface_new(struct wl_listener *listener, void *data)
 
 	view_init(&xdg_shell_view->view, server, CAGE_XDG_SHELL_VIEW, &xdg_shell_view_impl);
 
+    wlr_log(WLR_DEBUG, "XDG Shell searching for application pid");
+
     /* Locate the application who owns this view */
     wl_client_get_credentials(xdg_surface->client->client,&pid, NULL, NULL);
     if(pid){
@@ -349,6 +351,8 @@ handle_xdg_shell_surface_new(struct wl_listener *listener, void *data)
     }
     if(!xdg_shell_view->view.application){
         wlr_log(WLR_ERROR, "XDG Shell failed to get view application pid %d", pid);
+    } else {
+        wlr_log(WLR_DEBUG, "XDG Shell found application pid %d", pid);
     }
 
 	xdg_shell_view->xdg_surface = xdg_surface;
