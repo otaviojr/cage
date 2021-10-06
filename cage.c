@@ -121,7 +121,7 @@ parse_args(struct cg_server *server, int argc, char *argv[])
 #ifdef DEBUG
 	while ((c = getopt(argc, argv, "a:dDi:hm:rsv")) != -1) {
 #else
-	while ((c = getopt(argc, argv, "dhm:rsv")) != -1) {
+	while ((c = getopt(argc, argv, "a:di:hm:rsv")) != -1) {
 #endif
 		switch (c) {
     case 'a':
