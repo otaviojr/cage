@@ -124,17 +124,17 @@ parse_args(struct cg_server *server, int argc, char *argv[])
 	while ((c = getopt(argc, argv, "dhm:rsv")) != -1) {
 #endif
 		switch (c) {
-        case 'a':
-            wlr_log(WLR_DEBUG, "application_mapping: %s", optarg);
-			p = strstr(optarg, ";");
-            if(p){
-                *p = '\0';
-                struct cg_application_mapping* map = application_mapping_new(optarg,p+1);
-                wl_list_insert(&server->application_mappings, &map->link);
-            } else {
-                wlr_log(WLR_ERROR, "application_mapping with an invalid format %s", optarg);
-            }
-            break;
+    case 'a':
+        wlr_log(WLR_DEBUG, "application_mapping: %s", optarg);
+				p = strstr(optarg, ";");
+        if(p){
+            *p = '\0';
+            struct cg_application_mapping* map = application_mapping_new(optarg,p+1);
+            wl_list_insert(&server->application_mappings, &map->link);
+        } else {
+            wlr_log(WLR_ERROR, "application_mapping with an invalid format %s", optarg);
+        }
+        break;
 		case 'd':
 			server->xdg_decoration = true;
 			break;
@@ -146,17 +146,17 @@ parse_args(struct cg_server *server, int argc, char *argv[])
 		case 'h':
 			usage(stdout, argv[0]);
 			return false;
-        case 'i':
-            wlr_log(WLR_DEBUG, "io_mapping: %s", optarg);
-			p = strstr(optarg, ";");
-            if(p){
-                *p = '\0';
-                struct cg_io_mapping* map = io_mapping_new(optarg,p+1);
-                wl_list_insert(&server->io_mappings, &map->link);
-            } else {
-                wlr_log(WLR_ERROR, "io_mapping with an invalid format %s", optarg);
-            }
-            break;
+    case 'i':
+        wlr_log(WLR_DEBUG, "io_mapping: %s", optarg);
+				p = strstr(optarg, ";");
+        if(p){
+            *p = '\0';
+            struct cg_io_mapping* map = io_mapping_new(optarg,p+1);
+            wl_list_insert(&server->io_mappings, &map->link);
+        } else {
+            wlr_log(WLR_ERROR, "io_mapping with an invalid format %s", optarg);
+        }
+        break;
 		case 'm':
 			if (strcmp(optarg, "last") == 0) {
 				server->output_mode = CAGE_MULTI_OUTPUT_MODE_LAST;
