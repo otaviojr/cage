@@ -47,6 +47,24 @@ void application_new(struct cg_server *server, char* executable_list){
     }
 }
 
+void application_map(struct cg_server* server)
+{
+    struct cg_application_mapping *mapping;
+    struct cg_application *application;
+
+    wl_list_for_each (application, &server->applications, link) {
+        wlr_log(WLR_DEBUG, "Checking application %s", application->argv[0]);
+        wl_list_for_each (mapping, &server->application_mappings, link) {
+            wlr_log(WLR_DEBUG, "Checking mapping %s", mapping->application_name);
+            if(strstr(application->argv[0],mapping->application_name) != NULL){
+                application->output_name = strdup(mapping->output_name);
+                wlr_log(WLR_DEBUG, "Application %s mapped to output %s", application->argv[0], application->output_name);
+                break;
+            }
+        }
+    }
+}
+
 static bool
 set_cloexec(int fd)
 {
@@ -128,9 +146,21 @@ bool application_spawn(struct cg_application* application)
 	return true;
 }
 
-bool application_next_spawn(struct cg_server* server)
+bool application_next_spawn(struct cg_server* server, struct cg_output* output)
 {
     struct cg_application *application;
+
+    //check on all mapped applications
+    wl_list_for_each (application, &server->applications, link) {
+        if(application->pid == 0 && strcmp(application->output_name, output->wlr_output->name) == 0){
+            wlr_log(WLR_ERROR, "Application found for output %s. Spawn %s", output->wlr_output->name, application->argv[0]);
+            return application_spawn(application);
+        }
+    }
+
+    wlr_log(WLR_ERROR, "Application not found for output %s. Spawn next.", output->wlr_output->name);
+
+    //if not found any mapped application, spawn the next one
 	wl_list_for_each (application, &server->applications, link) {
         if(application->pid == 0){
             return application_spawn(application);
@@ -161,7 +191,6 @@ struct cg_application *application_find_by_pid(struct cg_server* server, pid_t p
 
     wlr_log(WLR_DEBUG, "Searching for pid %d", pid);
 	wl_list_for_each (application, &server->applications, link) {
-
         if(application->pid == pid){
             return application;
         }
@@ -183,13 +212,15 @@ void cleanup_all_applications(struct cg_server* server)
     struct cg_application *application;
 	wl_list_for_each (application, &server->applications, link) {
         int status;
-    	waitpid(application->pid, &status, 0);
+        waitpid(application->pid, &status, 0);
 
-    	if (WIFEXITED(status)) {
-    		wlr_log(WLR_DEBUG, "Child exited normally with exit status %d", WEXITSTATUS(status));
-    	} else if (WIFSIGNALED(status)) {
-    		wlr_log(WLR_DEBUG, "Child was terminated by a signal (%d)", WTERMSIG(status));
-    	}
+        free(application->output_name);
+
+        if (WIFEXITED(status)) {
+            wlr_log(WLR_DEBUG, "Child exited normally with exit status %d", WEXITSTATUS(status));
+        } else if (WIFSIGNALED(status)) {
+    	       wlr_log(WLR_DEBUG, "Child was terminated by a signal (%d)", WTERMSIG(status));
+           }
 	}
 }
 

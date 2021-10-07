@@ -31,7 +31,6 @@
 #include "seat.h"
 #include "server.h"
 #include "view.h"
-#include "io_mapping.h"
 #if CAGE_HAS_XWAYLAND
 #include "xwayland.h"
 #endif
@@ -134,30 +133,17 @@ static void
 map_input_device_to_output(struct cg_seat *seat, struct wlr_input_device *device)
 {
     struct cg_output *output;
-    struct cg_io_mapping* mapping;
 
-	if (!device->output_name) {
-        wl_list_for_each(mapping, &seat->server->io_mappings, link) {
-            if(strcmp(mapping->device_name, device->name) == 0){
-                device->output_name = mapping->output_name;
-            }
-        }
-        if (!device->output_name) {
-		    wlr_log(WLR_INFO, "Input device %s cannot be mapped to an output device\n", device->name);
-		    return;
-        }
-	}
-
-	wl_list_for_each (output, &seat->server->outputs, link) {
-		if (strcmp(device->output_name, output->wlr_output->name) == 0) {
-			wlr_log(WLR_INFO, "Mapping input device %s to output device %s\n", device->name,
-				output->wlr_output->name);
-			wlr_cursor_map_input_to_output(seat->cursor, device, output->wlr_output);
-			return;
+		wl_list_for_each (output, &seat->server->outputs, link) {
+			if (strcmp(device->output_name, output->wlr_output->name) == 0) {
+				wlr_log(WLR_INFO, "Mapping input device %s to output device %s\n", device->name,
+					output->wlr_output->name);
+				wlr_cursor_map_input_to_output(seat->cursor, device, output->wlr_output);
+				return;
+			}
 		}
-	}
 
-	wlr_log(WLR_INFO, "Couldn't map input device %s to an output\n", device->name);
+		wlr_log(WLR_INFO, "Couldn't map input device %s to an output\n", device->name);
 }
 
 static void

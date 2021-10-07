@@ -180,13 +180,13 @@ view_maximize_for_output(struct cg_view *view, struct wlr_output_layout_output *
 	view->impl->maximize(view, layout_output->output->width, layout_output->output->height);
 }
 
-static void
+/*static void
 view_maximize(struct cg_view *view, struct wlr_box *layout_box)
 {
 	view->lx = layout_box->x;
 	view->ly = layout_box->y;
 	view->impl->maximize(view, layout_box->width, layout_box->height);
-}
+}*/
 
 static void
 view_center(struct cg_view *view, struct wlr_box *layout_box)
@@ -212,26 +212,28 @@ view_position(struct cg_view *view)
             output = (struct cg_output*)layout_output->output->data;
             if(output->view && output->view == view){
                 view_maximize_for_output(view, layout_output);
-                wlr_log(WLR_ERROR, "View already mapped. Resizing.");
+                wlr_log(WLR_DEBUG, "View already mapped. Resizing.");
                 return;
             }
         }
 
         //If not, check if we have a fixed mapping
-        wlr_log(WLR_DEBUG, "Check for fixed mapped window.");
-        wl_list_for_each (layout_output, &view->server->output_layout->outputs, link) {
-            output = (struct cg_output*)layout_output->output->data;
-            if(view->application){
-                char* output_name = find_output_from_application(view->server, view->application->argv[0]);
+        if(view->application){
+            wlr_log(WLR_DEBUG, "Check for fixed mapped window for application %s", view->application->argv[0]);
+            wl_list_for_each (layout_output, &view->server->output_layout->outputs, link) {
+                output = (struct cg_output*)layout_output->output->data;
+                char* output_name = view->application->output_name;
                 if(output_name){
                     if(strcmp(output_name, output->wlr_output->name) == 0){
                         output->view = view;
                         view_maximize_for_output(view, layout_output);
-                        wlr_log(WLR_ERROR, "Fixed mapping view %s to output %s",view->application->argv[0], output->wlr_output->name);
+                        wlr_log(WLR_DEBUG, "Fixed mapping view %s to output %s",view->application->argv[0], output->wlr_output->name);
                         return;
                     }
                 }
             }
+        } else {
+            wlr_log(WLR_ERROR, "View has no application found");
         }
 
         //If not, try to map on the first available output
@@ -243,9 +245,9 @@ view_position(struct cg_view *view)
                 view_maximize_for_output(view, layout_output);
                 //Checking custom mappings
                 if(!view->application){
-                    wlr_log(WLR_ERROR, "Mapping view desconhecida to output %s", output->wlr_output->name);
+                    wlr_log(WLR_DEBUG, "Mapping view desconhecida to output %s", output->wlr_output->name);
                 } else {
-                    wlr_log(WLR_ERROR, "Mapping view %s to output %s",view->application->argv[0], output->wlr_output->name);
+                    wlr_log(WLR_DEBUG, "Mapping view %s to output %s",view->application->argv[0], output->wlr_output->name);
                 }
                 return;
             }

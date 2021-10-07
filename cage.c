@@ -51,7 +51,6 @@
 #endif
 
 #include "application.h"
-#include "io_mapping.h"
 #include "application_mapping.h"
 
 static bool
@@ -119,13 +118,13 @@ parse_args(struct cg_server *server, int argc, char *argv[])
 	int c;
     char* p;
 #ifdef DEBUG
-	while ((c = getopt(argc, argv, "a:dDi:hm:rsv")) != -1) {
+	while ((c = getopt(argc, argv, "a:dDhm:rsv")) != -1) {
 #else
-	while ((c = getopt(argc, argv, "a:di:hm:rsv")) != -1) {
+	while ((c = getopt(argc, argv, "a:dhm:rsv")) != -1) {
 #endif
 		switch (c) {
     case 'a':
-        wlr_log(WLR_DEBUG, "application_mapping: %s", optarg);
+        wlr_log(WLR_INFO, "application_mapping: %s", optarg);
 				p = strstr(optarg, ";");
         if(p){
             *p = '\0';
@@ -146,17 +145,6 @@ parse_args(struct cg_server *server, int argc, char *argv[])
 		case 'h':
 			usage(stdout, argv[0]);
 			return false;
-    case 'i':
-        wlr_log(WLR_DEBUG, "io_mapping: %s", optarg);
-				p = strstr(optarg, ";");
-        if(p){
-            *p = '\0';
-            struct cg_io_mapping* map = io_mapping_new(optarg,p+1);
-            wl_list_insert(&server->io_mappings, &map->link);
-        } else {
-            wlr_log(WLR_ERROR, "io_mapping with an invalid format %s", optarg);
-        }
-        break;
 		case 'm':
 			if (strcmp(optarg, "last") == 0) {
 				server->output_mode = CAGE_MULTI_OUTPUT_MODE_LAST;
@@ -223,6 +211,7 @@ main(int argc, char *argv[])
 	}
 
     application_new(&server, argv[optind]);
+    application_map(&server);
 
 #ifdef DEBUG
 	wlr_log_init(WLR_DEBUG, NULL);
@@ -442,6 +431,7 @@ main(int argc, char *argv[])
 
 end:
 	cleanup_all_applications(&server);
+    cleanup_all_applications_mappings(&server);
 
 	wl_event_source_remove(sigint_source);
 	wl_event_source_remove(sigterm_source);

@@ -1,2 +1,4 @@
 build/
 .stamp*
+.files*
+.applied*

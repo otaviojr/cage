@@ -448,10 +448,10 @@ map_output_to_touch_device(struct cg_output *output)
     struct cg_touch *touch;
 
 	wl_list_for_each (touch, &output->server->seat->touch, link) {
-        wlr_log(WLR_ERROR, "Checking input device %s to output device %s\n", touch->device->name,output->wlr_output->name);
+        wlr_log(WLR_DEBUG, "Checking input device %s to output device %s\n", touch->device->name,output->wlr_output->name);
         if(touch->device->output_name){
             if (strcmp(touch->device->output_name, output->wlr_output->name) == 0) {
-    			wlr_log(WLR_ERROR, "Mapping input device %s to output device %s\n", touch->device->name,
+    			  wlr_log(WLR_DEBUG, "Mapping input device %s to output device %s\n", touch->device->name,
     				output->wlr_output->name);
     			wlr_cursor_map_input_to_output(output->server->seat->cursor, touch->device, output->wlr_output);
     		} else {
@@ -469,8 +469,6 @@ handle_new_output(struct wl_listener *listener, void *data)
 {
 	struct cg_server *server = wl_container_of(listener, server, new_output);
 	struct wlr_output *wlr_output = data;
-
-    application_next_spawn(server);
 
 	struct cg_output *output = calloc(1, sizeof(struct cg_output));
 	if (!output) {
@@ -515,6 +513,8 @@ handle_new_output(struct wl_listener *listener, void *data)
 
 	output_enable(output);
     map_output_to_touch_device(output);
+
+	application_next_spawn(server, output);
 
 	struct cg_view *view;
 	wl_list_for_each (view, &output->server->views, link) {

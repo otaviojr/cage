@@ -5,7 +5,6 @@
 #include <string.h>
 
 #include <wlr/util/log.h>
-#include "server.h"
 #include "application_mapping.h"
 
 struct cg_application_mapping* application_mapping_new(char* application, char* output){
@@ -16,13 +15,12 @@ struct cg_application_mapping* application_mapping_new(char* application, char* 
     return mapping;
 }
 
-char* find_output_from_application(struct cg_server* server, char* application)
+void cleanup_all_applications_mappings(struct cg_server* server)
 {
     struct cg_application_mapping *mapping;
-	wl_list_for_each (mapping, &server->application_mappings, link) {
-		if(strstr(application, mapping->application_name) != NULL){
-            return mapping->output_name;
-        }
-	}
-    return NULL;
+
+    wl_list_for_each (mapping, &server->application_mappings, link) {
+        free(mapping->application_name);
+        free(mapping->output_name);
+    }
 }
