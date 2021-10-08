@@ -41,6 +41,7 @@ pixman         = dependency('pixman-1')
 xkbcommon      = dependency('xkbcommon')
 proc           = cc.find_library('libprocps')
 math           = cc.find_library('m')
+config         = cc.find_library('config')
 
 wl_protocol_dir = wayland_protos.get_pkgconfig_variable('pkgdatadir')
 wayland_scanner = find_program('wayland-scanner')
@@ -164,6 +165,7 @@ executable(
     pixman,
     math,
     proc,
+    config
   ],
   install: true,
 )
