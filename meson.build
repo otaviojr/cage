@@ -130,7 +130,7 @@ cage_sources = [
   'view.c',
   'xdg_shell.c',
   'application.c',
-  'application_mapping.c',
+  'configuration.c',
 ]
 
 cage_headers = [
@@ -146,7 +146,7 @@ cage_headers = [
   'view.h',
   'xdg_shell.h',
   'application.h',
-  'application_mapping.h',
+  'configuration.h'
 ]
 
 if conf_data.get('CAGE_HAS_XWAYLAND', 0) == 1

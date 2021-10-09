@@ -12,6 +12,8 @@
 #include <wlr/xwayland.h>
 #endif
 
+#include <libconfig.h>
+
 #include "output.h"
 #include "seat.h"
 #include "view.h"
@@ -51,6 +53,8 @@ struct cg_server {
 	bool xdg_decoration;
 	bool allow_vt_switch;
 	enum wl_output_transform output_transform;
+
+    config_t cage_cfg;
 #ifdef DEBUG
 	bool debug_damage_tracking;
 #endif

@@ -13,55 +13,48 @@
 #include "application.h"
 #include "util.h"
 
-void application_new(struct cg_server *server, char* executable_list){
+struct cg_application* application_new(struct cg_server *server, const char* executable, const char* output_name){
     struct cg_application* application;
-    char * executable, *argv, *end_executable, *end_argv;
+    char *argv, *end_argv;
     int argc;
 
-    end_executable = NULL;
-    executable = strtok_r(executable_list, ";", &end_executable);
-    while( executable != NULL ) {
-        application = calloc(1, sizeof(struct cg_application));
-        application->server = server;
-        application->pid = 0;
-        application->argv = NULL;
+    application = calloc(1, sizeof(struct cg_application));
+    application->server = server;
+    application->output_name = strdup(output_name);
+    application->pid = 0;
+    application->argv = NULL;
 
-        end_argv = NULL;
-        argc = 0;
-        argv = strtok_r(executable, " ", &end_argv);
-        while( argv != NULL ) {
-            argc++;
-            if(application->argv){
-                application->argv = realloc(application->argv,argc*sizeof(char*));
-            } else {
-                application->argv = malloc(argc*sizeof(char*));
-            }
-            application->argv[argc-1] = strdup(argv);
-            argv = strtok_r(NULL, " ", &end_argv);
+    end_argv = NULL;
+    argc = 0;
+    argv = strtok_r((char*)executable, " ", &end_argv);
+    while( argv != NULL ) {
+        argc++;
+        if(application->argv){
+            application->argv = realloc(application->argv,argc*sizeof(char*));
+        } else {
+            application->argv = malloc(argc*sizeof(char*));
         }
-
-        application->argv[argc] = NULL;
-
-        wl_list_insert(&server->applications, &application->link);
-        executable = strtok_r(NULL, ";",&end_executable);
+        application->argv[argc-1] = strdup(argv);
+        argv = strtok_r(NULL, " ", &end_argv);
     }
+
+    application->argv[argc] = NULL;
+
+    return application;
 }
 
-void application_map(struct cg_server* server)
+void application_destroy(struct cg_application* application)
 {
-    struct cg_application_mapping *mapping;
-    struct cg_application *application;
-
-    wl_list_for_each (application, &server->applications, link) {
-        wlr_log(WLR_DEBUG, "Checking application %s", application->argv[0]);
-        wl_list_for_each (mapping, &server->application_mappings, link) {
-            wlr_log(WLR_DEBUG, "Checking mapping %s", mapping->application_name);
-            if(strstr(application->argv[0],mapping->application_name) != NULL){
-                application->output_name = strdup(mapping->output_name);
-                wlr_log(WLR_DEBUG, "Application %s mapped to output %s", application->argv[0], application->output_name);
-                break;
-            }
+    if(application) {
+        if(application->output_name){
+            free(application->output_name);
         }
+
+        application_end_signal(application);
+        if(application->argv){
+            free(application->argv);
+        }
+        free(application);
     }
 }
 
@@ -146,29 +139,6 @@ bool application_spawn(struct cg_application* application)
 	return true;
 }
 
-bool application_next_spawn(struct cg_server* server, struct cg_output* output)
-{
-    struct cg_application *application;
-
-    //check on all mapped applications
-    wl_list_for_each (application, &server->applications, link) {
-        if(application->pid == 0 && strcmp(application->output_name, output->wlr_output->name) == 0){
-            wlr_log(WLR_ERROR, "Application found for output %s. Spawn %s", output->wlr_output->name, application->argv[0]);
-            return application_spawn(application);
-        }
-    }
-
-    wlr_log(WLR_ERROR, "Application not found for output %s. Spawn next.", output->wlr_output->name);
-
-    //if not found any mapped application, spawn the next one
-	wl_list_for_each (application, &server->applications, link) {
-        if(application->pid == 0){
-            return application_spawn(application);
-        }
-    }
-    return false;
-}
-
 static void get_proc(pid_t pid, proc_t* proc_info)
 {
     memset(proc_info, 0, sizeof(proc_t));
@@ -185,43 +155,30 @@ static void get_proc(pid_t pid, proc_t* proc_info)
 
 struct cg_application *application_find_by_pid(struct cg_server* server, pid_t pid)
 {
-    struct cg_application *application;
+    struct cg_output *output;
     proc_t process_info;
     pid_t ppid = 0;
 
     wlr_log(WLR_DEBUG, "Searching for pid %d", pid);
-	wl_list_for_each (application, &server->applications, link) {
-        if(application->pid == pid){
-            return application;
-        }
 
-        ppid = pid;
-        do{
-            get_proc(ppid, &process_info);
-            ppid = process_info.ppid;
-            if(ppid == application->pid){
-                return application;
+	wl_list_for_each (output, &server->outputs, link) {
+        if(output->application){
+            if(output->application->pid == pid){
+                return output->application;
             }
-        } while(ppid > 0);
-    }
-    return NULL;
-}
 
-void cleanup_all_applications(struct cg_server* server)
-{
-    struct cg_application *application;
-	wl_list_for_each (application, &server->applications, link) {
-        int status;
-        waitpid(application->pid, &status, 0);
-
-        free(application->output_name);
-
-        if (WIFEXITED(status)) {
-            wlr_log(WLR_DEBUG, "Child exited normally with exit status %d", WEXITSTATUS(status));
-        } else if (WIFSIGNALED(status)) {
-    	       wlr_log(WLR_DEBUG, "Child was terminated by a signal (%d)", WTERMSIG(status));
-           }
+            ppid = pid;
+            do{
+                get_proc(ppid, &process_info);
+                ppid = process_info.ppid;
+                if(ppid == output->application->pid){
+                    return output->application;
+                }
+            } while(ppid > 0);
+        }
 	}
+
+    return NULL;
 }
 
 void application_end_signal(struct cg_application* application)

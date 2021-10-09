@@ -6,6 +6,7 @@
 #include <wlr/types/wlr_output_damage.h>
 
 #include "server.h"
+#include "application.h"
 #include "view.h"
 
 struct cg_output {
@@ -21,6 +22,8 @@ struct cg_output {
 	struct wl_listener destroy;
 	struct wl_listener damage_frame;
 	struct wl_listener damage_destroy;
+
+    struct cg_application * application;
 
 	struct wl_list link; // cg_server::outputs
 };

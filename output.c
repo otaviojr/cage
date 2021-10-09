@@ -31,6 +31,7 @@
 #include <wlr/util/log.h>
 #include <wlr/util/region.h>
 
+#include "configuration.h"
 #include "output.h"
 #include "render.h"
 #include "seat.h"
@@ -395,11 +396,7 @@ output_destroy(struct cg_output *output)
 {
 	struct cg_server *server = output->server;
 
-    if(output->view && output->view->application){
-        application_end_signal(output->view->application);
-    } else {
-        wlr_log(WLR_ERROR, "Output has no view assigned to it");
-    }
+    application_destroy(output->application);
 
 	wl_list_remove(&output->destroy.link);
 	wl_list_remove(&output->commit.link);
@@ -475,12 +472,13 @@ handle_new_output(struct wl_listener *listener, void *data)
 		wlr_log(WLR_ERROR, "Failed to allocate output");
 		return;
 	}
-
 	output->wlr_output = wlr_output;
     wlr_output->data = output;
 	output->server = server;
 	output->damage = wlr_output_damage_create(wlr_output);
 	wl_list_insert(&server->outputs, &output->link);
+
+    output->application = config_output_get_application(server, wlr_output->name);
 
 	output->commit.notify = handle_output_commit;
 	wl_signal_add(&wlr_output->events.commit, &output->commit);
@@ -497,7 +495,9 @@ handle_new_output(struct wl_listener *listener, void *data)
 	if (preferred_mode) {
 		wlr_output_set_mode(wlr_output, preferred_mode);
 	}
-	wlr_output_set_transform(wlr_output, output->server->output_transform);
+
+	wlr_output_set_transform(wlr_output, config_output_get_transform(output->server, wlr_output->name));
+    wlr_output_set_scale(wlr_output, config_output_get_scale(output->server, wlr_output->name));
 
 	if (server->output_mode == CAGE_MULTI_OUTPUT_MODE_LAST) {
 		struct cg_output *next = wl_container_of(output->link.next, next, link);
@@ -514,7 +514,7 @@ handle_new_output(struct wl_listener *listener, void *data)
 	output_enable(output);
     map_output_to_touch_device(output);
 
-	application_next_spawn(server, output);
+	application_spawn(output->application);
 
 	struct cg_view *view;
 	wl_list_for_each (view, &output->server->views, link) {

@@ -6,15 +6,16 @@
  * See the LICENSE file accompanying this file.
  */
 
-#define _POSIX_C_SOURCE 200112L
+#define _POSIX_C_SOURCE 200809L
 
 #include "config.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <wayland-server-core.h>
@@ -50,8 +51,10 @@
 #include "xwayland.h"
 #endif
 
+#include "configuration.h"
 #include "application.h"
-#include "application_mapping.h"
+
+static char* configuration_file;
 
 static bool
 drop_permissions(void)
@@ -96,6 +99,7 @@ usage(FILE *file, const char *cage)
 		"Usage: %s [OPTIONS] [--] APPLICATION\n"
 		"\n"
         " -a\t Map an application to an output.\n"
+        " -c\t Configuration file path.\n"
 		" -d\t Don't draw client side decorations, when possible\n"
 #ifdef DEBUG
 		" -D\t Turn on damage tracking debugging\n"
@@ -116,31 +120,22 @@ static bool
 parse_args(struct cg_server *server, int argc, char *argv[])
 {
 	int c;
-    char* p;
 #ifdef DEBUG
-	while ((c = getopt(argc, argv, "a:dDhm:rsv")) != -1) {
+	while ((c = getopt(argc, argv, "c:dDhm:rsv")) != -1) {
 #else
-	while ((c = getopt(argc, argv, "a:dhm:rsv")) != -1) {
+	while ((c = getopt(argc, argv, "c:dhm:rsv")) != -1) {
 #endif
-		switch (c) {
-    case 'a':
-        wlr_log(WLR_INFO, "application_mapping: %s", optarg);
-				p = strstr(optarg, ";");
-        if(p){
-            *p = '\0';
-            struct cg_application_mapping* map = application_mapping_new(optarg,p+1);
-            wl_list_insert(&server->application_mappings, &map->link);
-        } else {
-            wlr_log(WLR_ERROR, "application_mapping with an invalid format %s", optarg);
-        }
-        break;
-		case 'd':
-			server->xdg_decoration = true;
-			break;
+	switch (c) {
+        case 'c':
+            configuration_file = strdup(optarg);
+            break;
+    	case 'd':
+    		server->xdg_decoration = true;
+    		break;
 #ifdef DEBUG
-		case 'D':
-			server->debug_damage_tracking = true;
-			break;
+    	case 'D':
+    		server->debug_damage_tracking = true;
+    		break;
 #endif
 		case 'h':
 			usage(stdout, argv[0]);
@@ -202,6 +197,14 @@ main(int argc, char *argv[])
 #endif
 	int ret = 0;
 
+    configuration_file = strdup("/etc/cage/cage.cfg");
+
+    #ifdef DEBUG
+    	wlr_log_init(WLR_DEBUG, NULL);
+    #else
+    	wlr_log_init(WLR_ERROR, NULL);
+    #endif
+
     wl_list_init(&server.io_mappings);
     wl_list_init(&server.application_mappings);
     wl_list_init(&server.applications);
@@ -210,14 +213,16 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
-    application_new(&server, argv[optind]);
-    application_map(&server);
+    config_init(&server.cage_cfg);
+    if(config_read_file(&server.cage_cfg, configuration_file) != CONFIG_TRUE){
+        wlr_log(WLR_ERROR, "Error parsing config file %s", configuration_file);
+        wlr_log(WLR_ERROR, "Line: %d", config_error_line(&server.cage_cfg));
+        wlr_log(WLR_ERROR, "Error: %s", config_error_text(&server.cage_cfg));
+        ret = 1;
+        goto end;
+    }
 
-#ifdef DEBUG
-	wlr_log_init(WLR_DEBUG, NULL);
-#else
-	wlr_log_init(WLR_ERROR, NULL);
-#endif
+    server.output_mode = config_get_output_mode(&server);
 
 	/* Wayland requires XDG_RUNTIME_DIR to be set. */
 	if (!getenv("XDG_RUNTIME_DIR")) {
@@ -430,9 +435,6 @@ main(int argc, char *argv[])
 	wl_display_destroy_clients(server.wl_display);
 
 end:
-	cleanup_all_applications(&server);
-    cleanup_all_applications_mappings(&server);
-
 	wl_event_source_remove(sigint_source);
 	wl_event_source_remove(sigterm_source);
 	if (sigchld_source) {
@@ -443,5 +445,8 @@ end:
 	   with a proper wl_display. */
 	wl_display_destroy(server.wl_display);
 	wlr_output_layout_destroy(server.output_layout);
+
+    free(configuration_file);
+
 	return ret;
 }

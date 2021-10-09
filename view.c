@@ -25,7 +25,6 @@
 #if CAGE_HAS_XWAYLAND
 #include "xwayland.h"
 #endif
-#include "application_mapping.h"
 
 static void
 view_child_handle_commit(struct wl_listener *listener, void *data)
