@@ -165,11 +165,6 @@ parse_args(struct cg_server *server, int argc, char *argv[])
 		}
 	}
 
-	if (optind >= argc) {
-		usage(stderr, argv[0]);
-		return false;
-	}
-
 	return true;
 }
 
@@ -223,6 +218,7 @@ main(int argc, char *argv[])
     }
 
     server.output_mode = config_get_output_mode(&server);
+    server.xdg_decoration = config_get_decoration(&server);
 
 	/* Wayland requires XDG_RUNTIME_DIR to be set. */
 	if (!getenv("XDG_RUNTIME_DIR")) {

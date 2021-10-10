@@ -3,6 +3,8 @@
 #include <string.h>
 #include <ctype.h>
 
+#include <wlr/util/log.h>
+
 #include "server.h"
 #include "output.h"
 
@@ -11,6 +13,22 @@
 static char* tolowercase(char* s) {
   for(char *p=s; *p; p++) *p=tolower(*p);
   return s;
+}
+
+bool config_get_decoration(struct cg_server* server)
+{
+    config_setting_t *setting;
+    int cfg_decoration = 0;
+
+    setting = config_lookup(&server->cage_cfg, "cage");
+    if(setting != NULL){
+        if(!config_setting_lookup_bool(setting, "decoration", &cfg_decoration)){
+            goto config_get_decoration_end;
+        }
+    }
+
+config_get_decoration_end:
+    return cfg_decoration == 0;
 }
 
 enum cg_multi_output_mode config_get_output_mode(struct cg_server* server)
@@ -84,7 +102,7 @@ double config_output_get_scale(struct cg_server* server, const char* output_name
     config_setting_t *setting;
     config_setting_t *output;
     char* cfg_output_name;
-    double cfg_output_scale = 0;
+    double cfg_output_scale = 1.0;
 
     setting = config_lookup(&server->cage_cfg, "cage.outputs");
     if(setting != NULL){
@@ -97,6 +115,7 @@ double config_output_get_scale(struct cg_server* server, const char* output_name
 
             if(strcmp(output_name, cfg_output_name)==0){
                 if(!config_setting_lookup_float(output, "scale", &cfg_output_scale)){
+                    wlr_log(WLR_ERROR, "Error parsing config file scale");
                     goto config_output_get_scale_end;
                 }
             }
