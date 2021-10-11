@@ -176,7 +176,7 @@ view_maximize_for_output(struct cg_view *view, struct wlr_output_layout_output *
 {
     view->lx = layout_output->x;
 	view->ly = layout_output->y;
-	view->impl->maximize(view, layout_output->output->width, layout_output->output->height);
+	view->impl->maximize(view, layout_output->output->width/layout_output->output->scale, layout_output->output->height/layout_output->output->scale);
 }
 
 /*static void
